@@ -138,7 +138,7 @@ def convert_profile():
         LHOST = raw_input(
         '\n' + G + '[+]' + W + ' Empire C2 LHOST: ')
         while LHOST == '':
-            LHOST = raw_input("[-] Empire C2 LHOST: ")
+			LHOST = raw_input("[-] Empire C2 LHOST: ")
 
     if args.c2:
  		c2System = args.c2
@@ -149,7 +149,7 @@ def convert_profile():
         LHOST = raw_input(
         '\n' + G + '[+]' + W + ' C2 System (cs or em): ')
         while LHOST == '':
-            LHOST = raw_input("[-] C2 System (cs or em): ")
+			LHOST = raw_input("[-] C2 System (cs or em): ")
 
     if args.port:
 		LPORT = args.port
@@ -157,7 +157,7 @@ def convert_profile():
         LPORT = raw_input(
         G + '[+]' + W + ' Empire C2 LPORT: ')
         while LPORT == '':
-            LPORT = raw_input("[-] Empire C2 LPORT: ")
+			LPORT = raw_input("[-] Empire C2 LPORT: ")
 
     if args.modeHTTPS:
 		HTTPS = args.modeHTTPS
@@ -165,7 +165,7 @@ def convert_profile():
         HTTPS = raw_input(
         G + '[+]' + W + ' HTTPS listener? [y/N]: ')
         while HTTPS == '':
-            HTTPS = raw_input("[-] HTTPS listener? [y/N]: ")
+			HTTPS = raw_input("[-] HTTPS listener? [y/N]: ")
 
     if args.redirectDomain:
         redirect = args.redirectDomain
@@ -173,7 +173,7 @@ def convert_profile():
         redirect = raw_input(
         G + '[+]' + W + ' Redirect Site URL: ')
         while redirect == '':
-            redirect = raw_input("[-] Redirect Site URL: ")
+			redirect = raw_input("[-] Redirect Site URL: ")
 
     commProfile = open(args.commProfile, 'r')
     cp_file = commProfile.read()
@@ -298,18 +298,21 @@ def get_apache():
 
     # Install Apache
     if not os.path.isdir('/etc/apache2/'):
-        install = raw_input(
-            (G + '[+]' + W + ' Apache installation not found' +
-             ' in /etc/apache2/. Install now? [y/N] ')
+		if args.install == 'y':
+			install = 'y'
+		else:
+			install = raw_input(
+			(G + '[+]' + W + ' Apache installation not found' +
+			 ' in /etc/apache2/. Install now? [y/N] ')
         )
-        if install == 'y':
-            print '\n' + T + '[*]' + W + ' Installing Apache...\n'
-            subprocess.call(['apt-get', 'update','-y'])
-            subprocess.call(['apt-get','install','apache2','-y'])
-            print LG + '\n[!]' + W + ' Apache installed.'
-        else:
-            sys.exit((R + '[!]' + W + ' Exiting. Apache' +
-                     ' not installed.'))
+		if install == 'y':
+			print '\n' + T + '[*]' + W + ' Installing Apache...\n'
+			subprocess.call(['apt-get', 'update','-y'])
+			subprocess.call(['apt-get','install','apache2','-y'])
+			print LG + '\n[!]' + W + ' Apache installed.'
+		else:
+			sys.exit((R + '[!]' + W + ' Exiting. Apache' +
+			         ' not installed.'))
 
 def get_https_cert():
 
@@ -318,9 +321,9 @@ def get_https_cert():
 
     if not args.myDomain:
         domain = raw_input(
-            '\n' + G + '[+]' + W + ' Redirector domain (e.g. example.com): ')
+			'\n' + G + '[+]' + W + ' Redirector domain (e.g. example.com): ')
         while domain == '':
-            domain = raw_input("[-] Redirector domain (e.g. example.com): ")
+			domain = raw_input("[-] Redirector domain (e.g. example.com): ")
     else:
 		domain = args.myDomain
     print '\n' + T + '[*]' + W + ' Runnning certbot. This might take some time...\n'
@@ -452,7 +455,7 @@ def write_rules(rules):
 # Main section
 if __name__ == "__main__":
 
-	print """
+	print """                         
 	                       .------.
 	    .------.           |A .   |
 	    |A_  _ |    .------; / \  |
@@ -462,18 +465,18 @@ if __name__ == "__main__":
 	    `-----+'\  / | Y  A|
 	          |  \/ A|-----'
 	          `------'
-	     ▄▄ ▝▜       ▝      ▐    ▗
-	    ▐▘ ▘ ▐   ▄▖ ▗▄   ▄▄ ▐▗▖ ▗▟▄
-	    ▝▙▄  ▐  ▐▘▐  ▐  ▐▘▜ ▐▘▐  ▐
-	      ▝▌ ▐  ▐▀▀  ▐  ▐ ▐ ▐ ▐  ▐
-	    ▝▄▟▘ ▝▄ ▝▙▞ ▗▟▄ ▝▙▜ ▐ ▐  ▝▄
-	                     ▖▐
-	                     ▝▘
+	     ▄▄ ▝▜       ▝      ▐    ▗  
+	    ▐▘ ▘ ▐   ▄▖ ▗▄   ▄▄ ▐▗▖ ▗▟▄ 
+	    ▝▙▄  ▐  ▐▘▐  ▐  ▐▘▜ ▐▘▐  ▐  
+	      ▝▌ ▐  ▐▀▀  ▐  ▐ ▐ ▐ ▐  ▐  
+	    ▝▄▟▘ ▝▄ ▝▙▞ ▗▟▄ ▝▙▜ ▐ ▐  ▝▄ 
+	                     ▖▐         
+	                     ▝▘         
 	"""
 
 	# Parse args
 	args = parse_args()
-
+	
 	# Root check
 	if os.geteuid():
 		sys.exit('\n' + R + '[!]' + W +
@@ -485,8 +488,8 @@ if __name__ == "__main__":
 			configure = args.proceed
 		else:
 			configure = raw_input(
-                G + '[+]' + W + ' Proceed with redirector setup?' +
-                    ' [y/N] ')
+			    G + '[+]' + W + ' Proceed with redirector setup?' +
+			        ' [y/N] ')
 
 		if configure == 'y':
 			get_apache()
