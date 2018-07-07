@@ -3,7 +3,7 @@
 
 ############################################################################################
 # sleight.py:   Empire HTTP(S) C2 redirector setup script
-# Author:   VIVI | <Blog: thevivi.net> | <Twitter: @_theVIVI> | <Email: gabriel@thevivi.net> 
+# Author:   VIVI | <Blog: thevivi.net> | <Twitter: @_theVIVI> | <Email: gabriel@thevivi.net>
 ############################################################################################
 
 import subprocess
@@ -133,13 +133,23 @@ def convert_profile():
 	
     # Get LHOST, LPORT and redirect site
     if args.ip:
-	# Get LHOST, LPORT and redirect site
  		LHOST = args.ip
     else:
         LHOST = raw_input(
         '\n' + G + '[+]' + W + ' Empire C2 LHOST: ')
         while LHOST == '':
             LHOST = raw_input("[-] Empire C2 LHOST: ")
+
+    if args.c2:
+ 		c2System = args.c2
+ 		if c2System != 'cs':
+			if c2System != 'em':
+				c2System == 'em'
+    else:
+        LHOST = raw_input(
+        '\n' + G + '[+]' + W + ' C2 System (cs or em): ')
+        while LHOST == '':
+            LHOST = raw_input("[-] C2 System (cs or em): ")
 
     if args.port:
 		LPORT = args.port
@@ -169,7 +179,7 @@ def convert_profile():
     cp_file = commProfile.read()
     commProfile.close()
     
-    if args.c2 == 'cs':
+    if c2System == 'cs':
 	##CS Start
 	# Search Strings
 		ua_string  = "set useragent"
@@ -253,7 +263,7 @@ def convert_profile():
 		# Create URI string in modrewrite syntax. "*" are needed in REGEX to support GET parameters on the URI
 		uris_string = ".*|".join(uris) + ".*"
 		
-    else:
+    if c2System == 'em':
 	## Empire Start 
 		profile = re.sub(r'(?m)^\#.*\n?', '', cp_file).strip('\n')
 		# GET request URI(s)
@@ -270,9 +280,12 @@ def convert_profile():
     # HTTPS rules
     if HTTPS == 'y':
     	htaccess_template_https = htaccess_template.replace('http', 'https', 1)
-    	rules = (htaccess_template_https.format(uri,user_agent,LHOST,LPORT,redirect))
+    	if c2System == 'cs':
+			rules = (cobaltstrike_htaccess_template.format(uris=uris_string,ua=ua_string,c2server=LHOST,c2port=LPORT,destination=redirect))
+        else:
+			rules = (empire_htaccess_template.format(uri,user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
     else:
-    	if args.c2 == 'cs':
+    	if c2System == 'cs':
 			rules = (cobaltstrike_htaccess_template.format(uris=uris_string,ua=ua_string,c2server=LHOST,c2port=LPORT,destination=redirect))
         else:
 			rules = (empire_htaccess_template.format(uri,user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
