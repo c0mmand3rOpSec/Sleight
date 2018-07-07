@@ -3,7 +3,7 @@
 
 ############################################################################################
 # sleight.py:   Empire HTTP(S) C2 redirector setup script
-# Author:   VIVI | <Blog: thevivi.net> | <Twitter: @_theVIVI> | <Email: gabriel@thevivi.net>
+# Author:   VIVI | <Blog: thevivi.net> | <Twitter: @_theVIVI> | <Email: gabriel@thevivi.net> 
 ############################################################################################
 
 import subprocess
@@ -19,12 +19,46 @@ T = '\033[1;93m'  #tan
 G = '\033[32m'    #green
 LG = '\033[1;32m' #light green
 
-htaccess_template = '''
+empire_htaccess_template = '''
 RewriteEngine On
 RewriteCond %{{REQUEST_URI}} ^/({})/?$
 RewriteCond %{{HTTP_USER_AGENT}} ^{}?$
-RewriteRule ^.*$ http://{}:{}%{{REQUEST_URI}} [P]
-RewriteRule ^.*$ {}/? [L,R=302]
+RewriteRule ^.*$ http://{c2server}:{c2port}%{{REQUEST_URI}} [P]
+RewriteRule ^.*$ {destination}/? [L,R=302]
+'''
+
+cobaltstrike_htaccess_template = '''
+########################################
+## .htaccess START 
+RewriteEngine On
+
+## (Optional)
+## Scripted Web Delivery 
+## Uncomment and adjust as needed
+#RewriteCond %{{REQUEST_URI}} ^/css/style1.css?$
+#RewriteCond %{{HTTP_USER_AGENT}} ^$
+#RewriteRule ^.*$ "http://{c2server}:{c2port}%{{REQUEST_URI}}" [P,L]
+
+## Default Beacon Staging Support (/1234)
+RewriteCond %{{REQUEST_URI}} ^/..../?$
+RewriteCond %{{HTTP_USER_AGENT}} "{ua}"
+RewriteRule ^.*$ "{c2server}:{c2port}%{{REQUEST_URI}}" [P,L]
+
+## C2 Traffic (HTTP-GET, HTTP-POST, HTTP-STAGER URIs)
+## Logic: If a requested URI AND the User-Agent matches, proxy the connection to the Teamserver
+## Consider adding other HTTP checks to fine tune the check.  (HTTP Cookie, HTTP Referer, HTTP Query String, etc)
+## Refer to http://httpd.apache.org/docs/current/mod/mod_rewrite.html
+## Profile URIs
+RewriteCond %{{REQUEST_URI}} ^({uris})$
+## Profile UserAgent
+RewriteCond %{{HTTP_USER_AGENT}} "{ua}"
+RewriteRule ^.*$ "{c2server}:{c2port}%{{REQUEST_URI}}" [P,L]
+
+## Redirect all other traffic here
+RewriteRule ^.*$ {destination}/? [L,R=302]
+
+## .htaccess END
+########################################
 '''
 
 def parse_args():
@@ -80,6 +114,12 @@ def parse_args():
         help='Proceed with configuration of HTTPS Redirector and Cert Deployment [y/N]',
         required=False
     )
+    parser.add_argument(
+        '-z',
+        '--c2',
+        help='C2 type: Values are \'cs\' or \'em\'',
+        required=False
+    )
 
     return parser.parse_args()
 
@@ -90,6 +130,7 @@ def shutdown():
    sys.exit()
 
 def convert_profile():
+	
     # Get LHOST, LPORT and redirect site
     if args.ip:
 	# Get LHOST, LPORT and redirect site
@@ -127,24 +168,114 @@ def convert_profile():
     commProfile = open(args.commProfile, 'r')
     cp_file = commProfile.read()
     commProfile.close()
-    profile = re.sub(r'(?m)^\#.*\n?', '', cp_file).strip('\n')
+    
+    if args.c2 == 'cs':
+	##CS Start
+	# Search Strings
+		ua_string  = "set useragent"
+		http_get   = "http-get"
+		http_post  = "http-post"
+		set_uri    = "set uri"
 
-    # GET request URI(s)
-    uri_string = profile.split('|')[0]
-    uri = uri_string.replace('\"','').replace(',','|').replace(',','|').strip('/')
-    uri = uri.replace('|/','|')
+		http_stager = "http-stager"
+		set_uri_86 = "set uri_x86"
+		set_uri_64 = "set uri_x64"
 
-    # User agent
-    user_agent_string = profile.split('|')[1]
-    user_agent = user_agent_string.replace(' ','\ ').replace('.','\.').replace('(','\(').replace(')','\)')
-    user_agent = user_agent.rstrip('\"')
+		# Errors
+		errorfound = False
+		errors = "\n##########\n[!] ERRORS\n"
+
+		# Get UserAgent
+		if cp_file.find(ua_string) == -1:
+			ua = ""
+			errors += "[!] User-Agent Not Found\n"
+			errorfound = True
+		else:
+			ua_start = cp_file.find(ua_string) + len(ua_string)
+			ua_end   = cp_file.find("\n",ua_start)
+			ua       = cp_file[ua_start:ua_end].strip()[1:-2]
+
+
+		# Get HTTP GET URIs
+		http_get_start = cp_file.find(http_get)
+		if cp_file.find(set_uri) == -1: 
+			get_uri = ""
+			errors += "[!] GET URIs Not Found\n"
+			errorfound = True
+		else:
+			get_uri_start  = cp_file.find(set_uri, http_get_start) + len(set_uri)
+			get_uri_end    = cp_file.find("\n", get_uri_start)
+			get_uri        = cp_file[get_uri_start:get_uri_end].strip()[1:-2]
+
+		# Get HTTP POST URIs
+		http_post_start = cp_file.find(http_post)
+		if cp_file.find(set_uri) == -1:
+			post_uri = ""
+			errors += "[!] POST URIs Not Found\n"
+			errorfound = True
+		else:
+			post_uri_start  = cp_file.find(set_uri, http_post_start) + len(set_uri)
+			post_uri_end    = cp_file.find("\n", post_uri_start)
+			post_uri        = cp_file[post_uri_start:post_uri_end].strip()[1:-2]
+
+		# Get HTTP Stager URIs x86
+		http_stager_start = cp_file.find(http_stager)
+		if cp_file.find(set_uri_86) == -1:
+			stager_uri_86 = ""
+			errors += "[!] x86 Stager URIs Not Found\n"
+			errorfound = True
+		else:
+			stager_uri_start  = cp_file.find(set_uri_86, http_stager_start) + len(set_uri_86)
+			stager_uri_end    = cp_file.find("\n", stager_uri_start)
+			stager_uri_86     = cp_file[stager_uri_start:stager_uri_end].strip()[1:-2]
+
+		# Get HTTP Stager URIs x64
+		http_stager_start = cp_file.find(http_stager)
+		if cp_file.find(set_uri_64) == -1:
+			stager_uri_64 = ""
+			errors += "[!] x64 Stager URIs Not Found\n"
+			errorfound = True
+		else:
+			stager_uri_start  = cp_file.find(set_uri_64, http_stager_start) + len(set_uri_64)
+			stager_uri_end    = cp_file.find("\n", stager_uri_start)
+			stager_uri_64     = cp_file[stager_uri_start:stager_uri_end].strip()[1:-2]
+
+		# Create URIs list
+		get_uris  = get_uri.split()
+		post_uris = post_uri.split()
+		stager86_uris = stager_uri_86.split()
+		stager64_uris = stager_uri_64.split()
+		uris = get_uris + post_uris + stager86_uris + stager64_uris
+
+		# Create UA in modrewrite syntax. No regex needed in UA string matching, but () characters must be escaped
+		ua_string = ua.replace('(','\(').replace(')','\)')
+
+		# Create URI string in modrewrite syntax. "*" are needed in REGEX to support GET parameters on the URI
+		uris_string = ".*|".join(uris) + ".*"
+		
+    else:
+	## Empire Start 
+		profile = re.sub(r'(?m)^\#.*\n?', '', cp_file).strip('\n')
+		# GET request URI(s)
+		uri_string = profile.split('|')[0]
+		uri = uri_string.replace('\"','').replace(',','|').replace(',','|').strip('/')
+		uri = uri.replace('|/','|')
+
+		# User agent
+		user_agent_string = profile.split('|')[1]
+		user_agent = user_agent_string.replace(' ','\ ').replace('.','\.').replace('(','\(').replace(')','\)')
+		user_agent = user_agent.rstrip('\"')
+	## Empire End
 
     # HTTPS rules
     if HTTPS == 'y':
     	htaccess_template_https = htaccess_template.replace('http', 'https', 1)
     	rules = (htaccess_template_https.format(uri,user_agent,LHOST,LPORT,redirect))
     else:
-    	rules = (htaccess_template.format(uri,user_agent,LHOST,LPORT,redirect))
+    	if args.c2 == 'cs':
+			rules = (cobaltstrike_htaccess_template.format(uris=uris_string,ua=ua_string,c2server=LHOST,c2port=LPORT,destination=redirect))
+        else:
+			rules = (empire_htaccess_template.format(uri,user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
 
     print LG + '\n[!]' + W + ' mod_rewrite rules generated.'
     print rules
