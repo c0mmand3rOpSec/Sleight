@@ -21,8 +21,8 @@ LG = '\033[1;32m' #light green
 
 empire_htaccess_template = '''
 RewriteEngine On
-RewriteCond %{{REQUEST_URI}} ^/({})/?$
-RewriteCond %{{HTTP_USER_AGENT}} ^{}?$
+RewriteCond %{{REQUEST_URI}} ^/({uris})/?$
+RewriteCond %{{HTTP_USER_AGENT}} ^{ua}?$
 RewriteRule ^.*$ http://{c2server}:{c2port}%{{REQUEST_URI}} [P]
 RewriteRule ^.*$ {destination}/? [L,R=302]
 '''
@@ -121,6 +121,21 @@ def parse_args():
         required=False
     )
 
+    parser.add_argument(
+        '-l',
+        '--lint',
+        help='c2lint has been ran against this profile (CS Only) [y/N]',
+        required=False
+    )
+
+    parser.add_argument(
+        '-a',
+        '--apache',
+        help='Install Apache2 if not found [y/N]',
+        required=False
+    )
+
+
     return parser.parse_args()
 
 def shutdown():
@@ -142,14 +157,14 @@ def convert_profile():
 
     if args.c2:
  		c2System = args.c2
- 		if c2System != 'cs':
-			if c2System != 'em':
-				c2System == 'em'
+ 		if c2System.lower() != 'cs':
+			if c2System.lower() != 'em':
+				c2System.lower() == 'em'
     else:
-        LHOST = raw_input(
+        c2System = raw_input(
         '\n' + G + '[+]' + W + ' C2 System (cs or em): ')
-        while LHOST == '':
-			LHOST = raw_input("[-] C2 System (cs or em): ")
+        while c2System == '':
+			c2System = raw_input("[-] C2 System (cs or em): ")
 
     if args.port:
 		LPORT = args.port
@@ -180,6 +195,20 @@ def convert_profile():
     commProfile.close()
     
     if c2System == 'cs':
+		
+		
+		if args.lint:
+ 		    c2lint = args.lint.lower()
+ 		   
+		else:
+			c2lint = raw_input(
+        '\n' + G + '[+]' + W + ' c2lint been ran against this profile [y/N]: ')
+			while c2lint == '':
+				c2lint = raw_input("[-] c2lint been ran against this profile [y/N]: ")
+		if c2lint.lower() != 'y':
+			print R + "[!]  Please run c2lint against this Cobalt Strike profile prior to deploying.\n"
+			exit()
+ 
 	##CS Start
 	# Search Strings
 		ua_string  = "set useragent"
@@ -263,7 +292,7 @@ def convert_profile():
 		# Create URI string in modrewrite syntax. "*" are needed in REGEX to support GET parameters on the URI
 		uris_string = ".*|".join(uris) + ".*"
 		
-    if c2System == 'em':
+    if c2System.lower() == 'em':
 	## Empire Start 
 		profile = re.sub(r'(?m)^\#.*\n?', '', cp_file).strip('\n')
 		# GET request URI(s)
@@ -278,17 +307,19 @@ def convert_profile():
 	## Empire End
 
     # HTTPS rules
-    if HTTPS == 'y':
-    	htaccess_template_https = htaccess_template.replace('http', 'https', 1)
-    	if c2System == 'cs':
-			rules = (cobaltstrike_htaccess_template.format(uris=uris_string,ua=ua_string,c2server=LHOST,c2port=LPORT,destination=redirect))
+    if HTTPS.lower() == 'y':
+        if c2System.lower() == 'cs':
+			htaccess_template_http = cobaltstrike_htaccess_template.replace('http', 'https', 1)
+			rules = (htaccess_template_http.format(uris=uris_string,ua=ua_string,c2server=LHOST,c2port=LPORT,destination=redirect))
         else:
-			rules = (empire_htaccess_template.format(uri,user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
+			htaccess_template_http = empire_htaccess_template.replace('http', 'https', 1)
+			print uri
+			rules = (htaccess_template_http.format(uris=uri,ua=user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
     else:
-    	if c2System == 'cs':
+    	if c2System.lower() == 'cs':
 			rules = (cobaltstrike_htaccess_template.format(uris=uris_string,ua=ua_string,c2server=LHOST,c2port=LPORT,destination=redirect))
         else:
-			rules = (empire_htaccess_template.format(uri,user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
+			rules = (empire_htaccess_template.format(uris=uri,ua=user_agent,c2server=LHOST,c2port=LPORT,destination=redirect))
 
     print LG + '\n[!]' + W + ' mod_rewrite rules generated.'
     print rules
@@ -298,14 +329,17 @@ def get_apache():
 
     # Install Apache
     if not os.path.isdir('/etc/apache2/'):
-		if args.install == 'y':
-			install = 'y'
-		else:
-			install = raw_input(
+		if not args.apache:
+			args.apache = 'n'
+		if args.apache:
+			if args.apache.lower() == 'y':
+				install = 'y'
+			else:
+				install = raw_input(
 			(G + '[+]' + W + ' Apache installation not found' +
 			 ' in /etc/apache2/. Install now? [y/N] ')
         )
-		if install == 'y':
+		if install.lower() == 'y':
 			print '\n' + T + '[*]' + W + ' Installing Apache...\n'
 			subprocess.call(['apt-get', 'update','-y'])
 			subprocess.call(['apt-get','install','apache2','-y'])
